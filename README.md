@@ -1,125 +1,79 @@
-<div align="center">
- <h1> <img src="https://www.freepnglogos.com/uploads/linkedin-logo-design-30.png" width="80px"><br/>LinkedIn Jobs API</h1>
- <a href="https://itsvg.in" target="_blank"><img src="https://img.shields.io/badge/Creator-Vishwa%20Gaurav-blue"/></a> 
- <img src="https://img.shields.io/npm/v/linkedin-jobs-api?label=%20"/>
- <img src="https://img.shields.io/npm/dt/linkedin-jobs-api">
- <img src="https://img.shields.io/snyk/vulnerabilities/github/VishwaGauravIn/linkedin-jobs-api"/>
- <img src="https://img.shields.io/badge/License-GPL%20v3-brightgreen"/>
- <img src="https://img.shields.io/github/languages/code-size/VishwaGauravIn/linkedin-jobs-api?logo=github">
-</div>
+
+Certainly! Here's a `README.md` file summarizing the LinkedIn job scraper project, with a mention of its dependency on the [linkedin-jobs-api](https://github.com/VishwaGauravIn/linkedin-jobs-api).
+
+---
+
+# LinkedIn Job Scraper
+
+This project is a LinkedIn job scraper that periodically polls for job postings matching specified criteria and stores them in a local CSV file. The scraper prevents duplicate entries by generating a unique identifier for each job and tracking processed jobs across sessions. It is built on top of the [linkedin-jobs-api](https://github.com/VishwaGauravIn/linkedin-jobs-api) library.
 
 ## Features
 
-- ⚡ Lightening Fast
-- ✨ Minimal
-- 🪶 Lightweight
-- 🔥 Advanced Filters
-- 🤩 Support all Frameworks
+- **Fetch Job Postings**: Retrieves job postings from LinkedIn based on customizable query parameters such as keyword, location, job type, and date since posted.
+- **Store in CSV**: Writes job details, including position, company, location, date, and job URL, to a local CSV file.
+- **Prevent Duplicates**: Utilizes a unique identifier for each job to ensure that duplicate entries are not added to the CSV.
+- **Persistent Tracking**: Tracks processed jobs across script restarts using a local JSON file.
 
-## How to Install ?
+## Installation
 
-Use npm or yarn to install this npm package
+1. **Clone the Repository**:
+   ```bash
+   git clone <repository-url>
+   cd <repository-directory>
+   ```
 
-```
-npm i linkedin-jobs-api
-```
+2. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-or
+## Usage
 
-```
-yarn add linkedin-jobs-api
-```
+1. **Configure Query Options**:
+   Customize the `queryOptions` object in the script to specify your search criteria. For example:
+   ```javascript
+   const queryOptions = {
+     keyword: 'software engineer',
+     location: 'Bangalore',
+     dateSincePosted: '1hr',
+     jobType: 'full time',
+     limit: '10'
+   };
+   ```
 
-Include the package
+2. **Run the Scraper**:
+   The scraper runs automatically at intervals (default every 15 minutes). To start it:
+   ```bash
+   node index.js
+   ```
 
-```
-const linkedIn = require('linkedin-jobs-api');
-```
+3. **Output**:
+   - Job postings are written to `job_postings.csv`.
+   - Processed job identifiers are stored in `processed_jobs.json` to avoid duplicates.
 
-Basic Example:
+## Customization
 
-```
-const linkedIn = require('linkedin-jobs-api');
+- **Polling Interval**: Adjust the polling interval by modifying the interval duration in milliseconds in the script:
+  ```javascript
+  setInterval(pollJobs, 900000); // 15 minutes
+  ```
 
-const queryOptions = {
-  keyword: 'software engineer',
-  location: 'India',
-  dateSincePosted: 'past Week',
-  jobType: 'full time',
-  remoteFilter: 'remote',
-  salary: '100000',
-  experienceLevel: 'entry level',
-  limit: '10'
-};
+- **CSV File Path**: Change the path for the output CSV file by updating `CSV_FILE_PATH`.
 
-linkedIn.query(queryOptions).then(response => {
-	console.log(response); // An array of Job objects
-});
-```
+## Dependencies
 
-## Query Object Parameters
-
-query() accepts a _queryOptions_ object and returns an array of _Job_ objects.
-
-|    Parameter    | LinkedIn Default value |                                                Description                                                |
-| :-------------: | :--------------------: | :-------------------------------------------------------------------------------------------------------: |
-|     keyword     |           ""           |                         _string_ - The text to search: (i.e. Software Developer)                          |
-|    location     |           ""           |                            _string_ - The name of the city: (i.e. Los Angeles)                            |
-| dateSincePosted |           ""           |                      _string_ - Max range of jobs: `past month`, `past week`, `24hr`                      |
-|     jobType     |           ""           | _string_ - Type of position: `full time`, `part time`, `contract`, `temporary`, `volunteer`, `internship` |
-|  remoteFilter   |           ""           |                      _string_ - Filter telecommuting: `on site`, `remote`, `hybrid`                       |
-|     salary      |           ""           |                 _string_ - Minimum Salary: `40000`, `60000`, `80000`, `100000`, `120000`                  |
-| experienceLevel |           ""           |          _string_ - `internship`, `entry level`, `associate`, `senior`, `director`, `executive`           |
-|      limit      |           ""           |                     _string_ - Number of jobs returned: (i.e. '1', '10', '100', etc)                      |
-|     sortBy      |           ""           |                                      _string_ - `recent`, `relevant`                                      |
-
-## Job Objects
-
-|  Paramter   |     Description (Default: null)     |
-| :---------: | :---------------------------------: |
-|  position   |      _string_ - Position title      |
-|   company   |       _string_ - Company name       |
-| companyLogo |       _string_ - Company Logo       |
-|  location   |   _string_ - Location of the job    |
-|    date     | _string_ - Date the job was posted  |
-|   agoTime   | _string_ - time since it was posted |
-|   salary    |       _string_ - Salary range       |
-|   jobUrl    |   _string_ - URL of the job page    |
-
-## Example Response
-
-```json
-[
-  {
-    "position": "Human Resources Administrator",
-    "company": "The Hub",
-    "companyLogo": "https://static.licdn.com/aero-v1/sc/h/9a9u41thxt325ucfh5z8ga4m8",
-    "location": "India",
-    "date": "2023-11-20",
-    "agoTime": "2 days ago",
-    "salary": "",
-    "jobUrl": "https://in.linkedin.com/jobs/view/human-resources-administrator-at-the-hub-3765436573?refId=rWSjK9izzZ1ZNnUZYzqp8Q%3D%3D&trackingId=X6uox0Xk%2FRQmqkuHpO%2BdrQ%3D%3D&position=1&pageNum=0&trk=public_jobs_jserp-result_search-card"
-  }
-]
-```
-
-## Our Sponsor
-<a href="https://nubela.co/proxycurl?utm_campaign=influencer_marketing&utm_source=github&utm_medium=social&utm_content=vishwagauravin_linkedin-jobs-api" target="_blank"><img src="https://github.com/VishwaGauravIn/linkedin-jobs-api/assets/81325730/afe16626-f05e-421b-a054-6aef1d1aec10" width="200px"/></a>
-
-Scrape public LinkedIn profile data at scale with [Proxycurl APIs](https://nubela.co/proxycurl?utm_campaign=influencer_marketing&utm_source=github&utm_medium=social&utm_content=vishwagauravin_linkedin-jobs-api).
-
-• Scraping Public profiles are battle tested in court in HiQ VS LinkedIn case.<br/>
-• GDPR, CCPA, SOC2 compliant<br/>
-• High rate limit - 300 requests/minute<br/>
-• Fast - APIs respond in ~2s<br/>
-• Fresh data - 88% of data is scraped real-time, other 12% are not older than 29 days<br/>
-• High accuracy<br/>
-• Tons of data points returned per profile
+- [linkedin-jobs-api](https://github.com/VishwaGauravIn/linkedin-jobs-api): A library for accessing LinkedIn job postings.
+- [csv-writer](https://www.npmjs.com/package/csv-writer): A library for writing to CSV files.
+- [crypto](https://nodejs.org/api/crypto.html): A Node.js module for generating unique identifiers.
 
 ## Contributing
 
-Feel free to contribute!
+Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
 
-1. Fork the repository
-2. Make changes
-3. Submit a pull request
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+This `README.md` provides a comprehensive overview of the project, including its features, installation instructions, usage, and customization options. Make sure to replace `<repository-url>` and `<repository-directory>` with the appropriate values for your repository
