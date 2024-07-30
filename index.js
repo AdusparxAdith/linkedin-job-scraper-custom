@@ -82,7 +82,7 @@ function pollJobs() {
 }
 
 // Poll every 15 minutes (900000 milliseconds)
-setInterval(pollJobs, 10000);
+setInterval(pollJobs, 5000);
 
 // Initial call to pollJobs
 pollJobs();

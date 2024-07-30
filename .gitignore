@@ -1,3 +1,7 @@
+# assets
+job_postings.csv
+processed_jobs.json
+
 # Logs
 logs
 *.log
