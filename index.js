@@ -1,197 +1,88 @@
-const cheerio = require("cheerio");
-const axios = require("axios");
+const linkedIn = require('./link');
+const fs = require('fs');
+const path = require('path');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const crypto = require('crypto');
 
-module.exports.query = (queryObject) => {
-  const query = new Query(queryObject);
-  console.log(query.url(0));
-  return query.getJobs();
+// Define the path for the CSV file
+const CSV_FILE_PATH = path.join(__dirname, 'job_postings.csv');
+const PROCESSED_JOBS_PATH = path.join(__dirname, 'processed_jobs.json');
+
+// Initialize the CSV writer
+const csvWriter = createCsvWriter({
+  path: CSV_FILE_PATH,
+  header: [
+    { id: 'position', title: 'Position' },
+    { id: 'company', title: 'Company' },
+    { id: 'location', title: 'Location' },
+    { id: 'date', title: 'Date' },
+    { id: 'jobUrl', title: 'Job URL' }
+  ],
+  append: true // Append to the file if it exists
+});
+
+const queryOptions = {
+  keyword: 'software engineer',
+  location: 'Bangalore',
+  dateSincePosted: '1hr',
+  jobType: 'full time',
+  limit: '100'
 };
 
-//transfers object values passed to our .query to an obj we can access
-function Query(queryObj) {
-  //query vars
-  this.host = queryObj.host || "www.linkedin.com";
-
-  //api handles strings with spaces by replacing the values with %20
-  this.keyword = queryObj.keyword?.trim().replace(" ", "+") || "";
-  this.location = queryObj.location?.trim().replace(" ", "+") || "";
-  this.dateSincePosted = queryObj.dateSincePosted || "";
-  this.jobType = queryObj.jobType || "";
-  this.remoteFilter = queryObj.remoteFilter || "";
-  this.salary = queryObj.salary || "";
-  this.experienceLevel = queryObj.experienceLevel || "";
-  this.sortBy = queryObj.sortBy || "";
-  //internal variable
-  this.limit = Number(queryObj.limit) || 0;
+// Load processed jobs from file or initialize an empty set
+let processedJobs = new Set();
+if (fs.existsSync(PROCESSED_JOBS_PATH)) {
+  const data = fs.readFileSync(PROCESSED_JOBS_PATH);
+  processedJobs = new Set(JSON.parse(data));
 }
 
-/*
- *
- *
- * Following get Functions act as object literals so the query can be constructed with the correct parameters
- *
- *
- */
-Query.prototype.getDateSincePosted = function () {
-  const dateRange = {
-    "past month": "r2592000",
-    "past week": "r604800",
-    "24hr": "r86400",
-  };
-  return dateRange[this.dateSincePosted.toLowerCase()] ?? "";
-};
+// Function to save processed jobs set to file
+function saveProcessedJobs() {
+  fs.writeFileSync(PROCESSED_JOBS_PATH, JSON.stringify(Array.from(processedJobs)));
+}
 
-Query.prototype.getExperienceLevel = function () {
-  const experienceRange = {
-    internship: "1",
-    "entry level": "2",
-    associate: "3",
-    senior: "4",
-    director: "5",
-    executive: "6",
-  };
-  return experienceRange[this.experienceLevel.toLowerCase()] ?? "";
-};
-Query.prototype.getJobType = function () {
-  const jobTypeRange = {
-    "full time": "F",
-    "full-time": "F",
-    "part time": "P",
-    "part-time": "P",
-    contract: "C",
-    temporary: "T",
-    volunteer: "V",
-    internship: "I",
-  };
-  return jobTypeRange[this.jobType.toLowerCase()] ?? "";
-};
-Query.prototype.getRemoteFilter = function () {
-  const remoteFilterRange = {
-    "on-site": "1",
-    "on site": "1",
-    remote: "2",
-    hybrid: "3",
-  };
-  return remoteFilterRange[this.remoteFilter.toLowerCase()] ?? "";
-};
-Query.prototype.getSalary = function () {
-  const salaryRange = {
-    40000: "1",
-    60000: "2",
-    80000: "3",
-    100000: "4",
-    120000: "5",
-  };
-  return salaryRange[this.salary.toLowerCase()] ?? "";
-};
+// Create a unique identifier for a job
+function createJobIdentifier(job) {
+  const dataToHash = `${job.position.toLowerCase().trim()}-${job.company.toLowerCase().trim()}-${job.location.toLowerCase().trim()}-${job.date.trim()}`;
+  return crypto.createHash('sha256').update(dataToHash).digest('hex');
+}
 
-/*
- * EXAMPLE OF A SAMPLE QUERY
- * https://www.linkedin.com/jobs/search/?f_E=2%2C3&f_JT=F%2CP&f_SB2=1&f_TPR=r2592000&f_WT=2%2C1&geoId=90000049&keywords=programmer&location=Los%20Angeles%20Metropolitan%20Area
- * Date Posted (Single Pick)	        f_TPR
- * Job Type (Multiple Picks)	        f_JT
- * Experience Level(Multiple Picks)	    f_E
- * On-Site/Remote (Multiple Picks)	    f_WT
- * Salary (Single Pick)	                f_SB2
- *
- */
-Query.prototype.url = function (start) {
-  let query = `https://${this.host}/jobs-guest/jobs/api/seeMoreJobPostings/search?`;
-  if (this.keyword !== "") query += `keywords=${this.keyword}`;
-  if (this.location !== "") query += `&location=${this.location}`;
-  if (this.getDateSincePosted() !== "")
-    query += `&f_TPR=${this.getDateSincePosted()}`;
-  if (this.getSalary() !== "") query += `&f_SB2=${this.getSalary()}`;
-  if (this.getExperienceLevel() !== "")
-    query += `&f_E=${this.getExperienceLevel()}`;
-  if (this.getRemoteFilter() !== "") query += `&f_WT=${this.getRemoteFilter()}`;
-  if (this.getJobType() !== "") query += `&f_JT=${this.getJobType()}`;
-  query += `&start=${start}`;
-  if (this.sortBy == "recent" || this.sortBy == "relevant") {
-    let sortMethod = "R";
-    if (this.sortBy == "recent") sortMethod = "DD";
-    query += `&sortBy=${sortMethod}`;
-  }
-  return encodeURI(query);
-};
 
-Query.prototype.getJobs = async function () {
+async function writeJobsToCsv(jobs) {
   try {
-    let parsedJobs,
-      resultCount = 1,
-      start = 0,
-      jobLimit = this.limit,
-      allJobs = [];
-
-    while (resultCount > 0) {
-      //fetch our data using our url generator with
-      //the page to start on
-      const { data } = await axios.get(this.url(start));
-
-      //select data so we can check the number of jobs returned
-      const $ = cheerio.load(data);
-      const jobs = $("li");
-      //if result count ends up being 0 we will stop getting more jobs
-      resultCount = jobs.length;
-      console.log("I got ", jobs.length, " jobs");
-
-      //to get the job data as objects with the desired details
-      parsedJobs = parseJobList(data);
-      allJobs.push(...parsedJobs);
-
-      //increment by 25 bc thats how many jobs the AJAX request fetches at a time
-      start += 25;
-
-      //in order to limit how many jobs are returned
-      //this if statment will return our function value after looping and removing excess jobs
-      if (jobLimit != 0 && allJobs.length > jobLimit) {
-        while (allJobs.length != jobLimit) allJobs.pop();
-        return allJobs;
-      }
-    }
-    //console.log(allJobs)
-    return allJobs;
-  } catch (error) {
-    console.error(error);
+    await csvWriter.writeRecords(jobs);
+    console.log('Jobs successfully written to CSV.');
+  } catch (err) {
+    console.error('Error writing to CSV:', err);
   }
-};
-function parseJobList(jobData) {
-  const $ = cheerio.load(jobData);
-  const jobs = $("li");
-
-  const jobObjects = jobs
-    .map((index, element) => {
-      const job = $(element);
-      const position = job.find(".base-search-card__title").text().trim() || "";
-      const company =
-        job.find(".base-search-card__subtitle").text().trim() || "";
-      const location =
-        job.find(".job-search-card__location").text().trim() || "";
-      const date = job.find("time").attr("datetime") || "";
-      const salary =
-        job
-          .find(".job-search-card__salary-info")
-          .text()
-          .trim()
-          .replace(/\n/g, "")
-          .replaceAll(" ", "") || "";
-      const jobUrl = job.find(".base-card__full-link").attr("href") || "";
-      const companyLogo =
-        job.find(".artdeco-entity-image").attr("data-delayed-url") || "";
-      const agoTime =
-        job.find(".job-search-card__listdate").text().trim() || "";
-      return {
-        position: position,
-        company: company,
-        companyLogo: companyLogo,
-        location: location,
-        date: date,
-        agoTime: agoTime,
-        salary: salary,
-        jobUrl: jobUrl,
-      };
-    })
-    .get();
-
-  return jobObjects;
 }
+
+function pollJobs() {
+  linkedIn.query(queryOptions).then(async response => {
+    const newJobs = response?.filter(job => {
+      const jobIdentifier = createJobIdentifier(job);
+      return !processedJobs.has(jobIdentifier);
+    });
+    if (newJobs?.length > 0) {
+      // Add new jobs to the set of processed jobs
+      console.log("Found new jobs")
+      newJobs.forEach(job => {
+        const jobIdentifier = createJobIdentifier(job);
+        processedJobs.add(jobIdentifier);
+      });
+
+      saveProcessedJobs();
+
+      // Write new jobs to the CSV file
+      await writeJobsToCsv(newJobs);
+    }
+  }).catch(error => {
+    console.error('Error fetching jobs:', error);
+  });
+}
+
+// Poll every 15 minutes (900000 milliseconds)
+setInterval(pollJobs, 10000);
+
+// Initial call to pollJobs
+pollJobs();

@@ -1,4 +1,4 @@
-const linkedIn = require("./index");
+const linkedIn = require("./link");
 
 const queryOptions = {
   keyword: "",
